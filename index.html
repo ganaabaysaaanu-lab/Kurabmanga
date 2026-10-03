@@ -1,0 +1,206 @@
+
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KURABMANGA</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#100c18;color:#f4eaff;
+font-family:Arial,sans-serif}
+header{padding:18px;background:#1b1327;
+display:flex;justify-content:space-between;align-items:center;
+position:sticky;top:0;z-index:2}
+.logo{font-size:21px;font-weight:bold;color:#d6aaff}
+button,select,input,textarea{font:inherit}
+button{background:#7544a1;color:white;border:0;
+padding:10px 14px;border-radius:10px;cursor:pointer}
+input,select,textarea{background:#21182e;color:white;
+border:1px solid #59416e;border-radius:10px;
+padding:12px;width:100%}
+main{padding:16px;max-width:900px;margin:auto}
+.hero{padding:25px 20px;border-radius:18px;
+background:linear-gradient(130deg,#42215f,#1b142b 75%);
+margin:8px 0 22px}
+.hero h1{font-size:30px;margin:8px 0}
+.muted{color:#bcaacb;font-size:13px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}
+.tools input{flex:1;min-width:160px}
+.tools select{width:auto;max-width:150px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+@media(min-width:600px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.cover{width:100%;aspect-ratio:3/4;object-fit:cover;
+border-radius:12px;background:#2a1d37}
+.card{background:#1b1427;padding:9px;border-radius:14px;
+min-width:0}
+.card h3{font-size:14px;margin:9px 0 5px}
+.row{display:flex;gap:7px;align-items:center}
+.small{font-size:12px;color:#c0afcf}
+section{margin:24px 0}
+.hidden{display:none!important}
+.reader{text-align:center}
+.reader img{width:100%;max-width:700px;display:block;margin:auto}
+footer{padding:22px;text-align:center;color:#a997b7}
+a{color:#d6aaff}
+</style>
+</head>
+<body>
+<header>
+ <div class="logo">☾ KURABMANGA</div>
+ <button onclick="show('home')">⌂ Home</button>
+</header>
+<main>
+<div id="home">
+ <div class="hero">
+  <div class="muted">WELCOME TO KURABMANGA</div>
+  <h1>Enter the world<br>of stories.</h1>
+  <p class="muted">Discover your next favorite manga.</p>
+ </div>
+ <div class="tools">
+  <input id="search" placeholder="⌕ Манхва хайх..." oninput="render()">
+  <select id="genre" onchange="render()">
+   <option value="">Бүх төрөл</option>
+   <option>BL</option><option>Romance</option>
+   <option>Fantasy</option><option>Action</option>
+   <option>Horror</option><option>Drama</option>
+  </select>
+ </div>
+ <div class="row" style="justify-content:space-between">
+  <h3>Popular manhwa</h3>
+  <button onclick="show('favorites')">♡ Favorites</button>
+ </div>
+ <div id="catalog" class="grid"></div>
+ <section>
+  <h3>✦ Шинэ манхва нэмэх</h3>
+  <input id="newTitle" placeholder="Манхвагийн нэр">
+  <br><br>
+  <select id="newGenre">
+   <option>BL</option><option>Romance</option>
+   <option>Fantasy</option><option>Action</option>
+   <option>Horror</option><option>Drama</option>
+  </select>
+  <br><br>
+  <input id="newCover" placeholder="Хавтасны зургийн URL">
+  <br><br>
+  <button onclick="addManga()">＋ Нэмэх</button>
+ </section>
+ <section>
+  <h3>♙ Хэрэглэгч</h3>
+  <input id="username" placeholder="Нэрээ оруул">
+  <br><br><button onclick="login()">Нэвтрэх (туршилт)</button>
+  <p id="welcome" class="muted"></p>
+ </section>
+</div>
+<div id="favorites" class="hidden">
+ <button onclick="show('home')">← Буцах</button>
+ <h2>♡ Дуртай манхва</h2>
+ <div id="favList" class="grid"></div>
+</div>
+<div id="reader" class="hidden">
+ <button onclick="show('home')">← Буцах</button>
+ <h2 id="readTitle"></h2>
+ <div id="chapters" class="tools"></div>
+ <div id="pages" class="reader"></div>
+ <h3>Сэтгэгдэл</h3>
+ <div id="comments"></div>
+ <textarea id="commentText" placeholder="Сэтгэгдэл бичих..."></textarea>
+ <br><br><button onclick="comment()">Илгээх</button>
+</div>
+</main>
+<footer>☾ KURABMANGA · Read in your own world ✦</footer>
+<script>
+const starter=[
+ {id:1,title:"Moonlit Fate",genre:"Fantasy",cover:"",chapters:[]},
+ {id:2,title:"Violet Heart",genre:"Romance",cover:"",chapters:[]},
+ {id:3,title:"Night Hunter",genre:"Action",cover:"",chapters:[]},
+ {id:4,title:"Secret Bloom",genre:"BL",cover:"",chapters:[]}
+];
+let mangas=JSON.parse(localStorage.mangas||"null")||starter;
+let favorites=JSON.parse(localStorage.favorites||"[]");
+let current=null;
+let esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function save(){localStorage.mangas=JSON.stringify(mangas);
+localStorage.favorites=JSON.stringify(favorites)}
+function show(id){
+ ["home","favorites","reader"].forEach(x=>
+ document.getElementById(x).classList.toggle("hidden",x!==id));
+ if(id==="favorites")renderFav();
+}
+function render(){
+ let q=document.getElementById("search").value.toLowerCase();
+ let g=document.getElementById("genre").value;
+ let list=mangas.filter(m=>m.title.toLowerCase().includes(q)&&(!g||m.genre===g));
+ document.getElementById("catalog").innerHTML=list.map(card).join("");
+}
+function card(m){
+ return `<div class="card">
+ <img class="cover" src="${esc(m.cover||"https://placehold.co/300x400/241832/e4caff?text=KURABMANGA")}" alt="Cover">
+ <h3>${esc(m.title)}</h3><div class="small">${esc(m.genre)}</div>
+ <div class="row" style="margin-top:10px">
+ <button onclick="openManga(${m.id})">Унших</button>
+ <button onclick="favorite(${m.id})">${favorites.includes(m.id)?"♥":"♡"}</button>
+ </div></div>`;
+}
+function favorite(id){
+ favorites=favorites.includes(id)?favorites.filter(x=>x!==id):[...favorites,id];
+ save();render();renderFav();
+}
+function renderFav(){
+ document.getElementById("favList").innerHTML=mangas.filter(m=>favorites.includes(m.id)).map(card).join("")||"<p>Одоогоор хоосон байна.</p>";
+}
+function addManga(){
+ let title=document.getElementById("newTitle").value.trim();
+ if(!title)return alert("Нэрээ бичээрэй!");
+ mangas.push({id:Date.now(),title,genre:document.getElementById("newGenre").value,cover:document.getElementById("newCover").value.trim(),chapters:[]});
+ save();render();document.getElementById("newTitle").value="";
+}
+function openManga(id){
+ current=mangas.find(m=>m.id===id);
+ show("reader");
+ document.getElementById("readTitle").textContent=current.title;
+ let chapters=current.chapters||[];
+ document.getElementById("chapters").innerHTML=
+ chapters.map((c,i)=>`<button onclick="readChapter(${i})">Chapter ${i+1}</button>`).join("")+
+ `<button onclick="addChapter()">＋ Бүлэг нэмэх</button>`;
+ document.getElementById("pages").innerHTML="<p class='muted'>Унших бүлгээ сонгоно уу.</p>";
+ document.getElementById("comments").innerHTML="";
+}
+function addChapter(){
+ let urls=prompt("Хуудасны зургийн URL-уудыг таслалаар тусгаарлаж оруул:");
+ if(!urls)return;
+ current.chapters=current.chapters||[];
+ current.chapters.push(urls.split(",").map(x=>x.trim()).filter(Boolean));
+ save();openManga(current.id);
+}
+function readChapter(i){
+ let pages=current.chapters[i]||[];
+ document.getElementById("pages").innerHTML=pages.map((url,j)=>
+ `<img loading="lazy" src="${esc(url)}" alt="Page ${j+1}">`).join("");
+ localStorage["progress_"+current.id]=i;
+}
+function login(){
+ let n=document.getElementById("username").value.trim();
+ if(!n)return;
+ localStorage.demoUser=n;
+ document.getElementById("welcome").textContent="Сайн уу, "+n+"!";
+}
+function comment(){
+ let t=document.getElementById("commentText").value.trim();
+ if(!t||!current)return;
+ let key="comments_"+current.id;
+ let all=JSON.parse(localStorage[key]||"[]");
+ all.push({user:localStorage.demoUser||"Уншигч",text:t});
+ localStorage[key]=JSON.stringify(all);
+ document.getElementById("commentText").value="";
+ showComments();
+}
+function showComments(){
+ let all=JSON.parse(localStorage["comments_"+current.id]||"[]");
+ document.getElementById("comments").innerHTML=all.map(c=>
+ `<p><b>${esc(c.user)}</b>: ${esc(c.text)}</p>`).join("");
+}
+render();
+</script>
+</body>
+</html>
